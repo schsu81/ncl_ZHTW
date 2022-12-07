@@ -1,0 +1,6 @@
+Writing tradictional Chinese word with dots.
+export SC_ROOT include:
+  $SC_ROOT/lib/ZHWD.ncl
+  $SC_ROOT/font
+2018/08/13 Shen-Cha Hsu -- schsu81@gmail.com
+2022/12/07 Rewriting the location and dots
