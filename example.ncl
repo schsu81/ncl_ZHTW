@@ -25,9 +25,13 @@ res@gsnFrame=False
 
 plt = gsn_csm_xy(wks,(/0,0./),(/0,1./),res)
 
+res@FontZHTW = "微軟正黑體"
 fontTitle(wks, plt, res)
 
 ftres = True
+ftres@gsLineThicknessF = 1 ; default : 1, 
+                           ; 0 to close outline.
+
 sc_add_zhtw(wks, plt, "繁1aA體2bB測9zZ試0ijk", 0.5, 0.9, ftres)
 ftres@FontZHTW = "思源黑體" ; default
 sc_add_zhtw(wks, plt, "NCL會寫繁體字,思源黑體",0.5, 0.850, ftres)

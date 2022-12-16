@@ -85,13 +85,21 @@ end
 ;----------------------------------------------------------------------
 undef("fontLenth")
 function fontLenth(intChar,fontW)
-local ArrLen
+local ArrLen,LW,lw
 begin
+       ;  a   b   c   d   e   f   g   h   i   j   k   l   m   n   o   p   q   r   s   t   u   v   w   x   y   z
+  LW = (/.9 ,.7 ,.8 ,.8 ,.7 ,.7 ,.9 ,.8 ,.1 ,.6 ,.8 ,.6 ,.8 ,.7 ,.9 ,.7 ,.9 ,.8 ,.8 ,.8 ,.7 ,.8 ,.12,.8 ,.8 ,.8 /)
+  lw = (/.7 ,.7 ,.6 ,.7 ,.7 ,.4 ,.7 ,.6 ,.2 ,.2 ,.7 ,.1 ,.9 ,.6 ,.7 ,.7 ,.7 ,.4 ,.6 ,.4 ,.6 ,.7 ,.9 ,.7 ,.7 ,.6 /) 
+        ;     !  "  #  $  %  &  ,  (  )  *  +  ,  _  .  /  0  1  2  3  4  5  6  7  8  9  :  ;  <  =  >  ?  @
+  mw1 = (/.6,.1,.4,.7,.7,.9,.8,.1,.3,.3,.4,.7,.2,.3,.1,.3,.7,.7,.7,.7,.7,.7,.7,.7,.7,.7,.1,.1,.7,.7,.7,.6,.9/)
+        ;  [  \  ]  ^  _  '
+  mw2 = (/.3,.4,.3,.6,.8,.1/)
+  
   ArrLen = dimsizes(intChar)
   Width   = 0.
-  en_oper = 0.5
+  en_oper = 1.
   do i=0,ArrLen-1
-    if (intChar(i).eq.126)then 
+    if (intChar(i).eq.126)then ;~ 
       j=i
       i=i+1
       do while (i.le.ArrLen-1 .and. intChar(i).ne.126)
@@ -99,37 +107,53 @@ begin
       end do
 
       if (i.eq.j+1)then
-        Width   = Width + en_oper*fontW
+        Width   = Width + en_oper*0.6*fontW ; ~~
       elseif (""+tochar(intChar(j:i)) .eq. "~S~")then
-        en_oper = 0.3 ; =0.5*0.8
+        en_oper = 0.65
       elseif (""+tochar(intChar(j:i)) .eq. "~N~")then
-        en_oper = 0.7
-      ;elseif (""+tochar(intChar(j:i)) .eq. "~C~")then
-      ;  Width = (num(intChar(:j-1).gt.127)/3 + num(intChar(:j-1).le.127)*0.9)*fontW
-      ;  i = ArrLen
+        en_oper = 1.
+      elseif (""+tochar(intChar(j:i)) .eq. "~B~")then
+        en_oper = 0.65
       else
         Width = Width
       end if
-    elseif (intChar(i).ge.128)then
+    elseif (intChar(i).ge.128)then ; zhtw
         Width = Width + fontW
         i=i+2
-    elseif (intChar(i).ge.48.and.intChar(i).le.57)then ;0-9
-        Width = Width + 0.7*fontW
-    elseif (intChar(i).ge.65.and.intChar(i).le.90)then ;A-Z
-        Width = Width + 0.9*fontW
-    elseif (intChar(i).ge.97.and.intChar(i).le.122)then ;a-z
-        Width = Width + 0.6*fontW
+    elseif (intChar(i).ge.32.and.intChar(i).le.64)then ;mw1
+        Width = Width + en_oper*mw1(intChar(i)-32)*fontW
+    elseif (intChar(i).le.90)then ;A-Z 65-90
+        Width = Width + en_oper*LW(intChar(i)-65)*fontW
+    elseif (intChar(i).le.96)then ;mw2 91-96
+        Width = Width + en_oper*mw2(intChar(i)-91)*fontW
+    elseif (intChar(i).le.122)then ;a-z 97-122
+        Width = Width + en_oper*lw(intChar(i)-97)*fontW
     else
-        Width = Width + en_oper*fontW
+        Width = Width + en_oper*0.5*fontW
     end if
   end do
   return Width
 end 
 ;----------------------------------------------------------------------
+undef("enSingleJustOrth")
+function enSingleJustOrth(intChar,fontW)
+local aa,str,ii,oJust
+begin
+  if (strlen(intChar).eq.1)then
+    str   = (/str_get_dq(),"'","." ,"," ,"^","`"/)
+    oJust = (/          .3, .3,-.15,-.15,.3 ,.3 /)
+    ii    = ind(intChar.eq.str)
+    if (.not.all(ismissing(ii)))then
+      return oJust(ii)*fontW
+    end if
+  end if
+  return 0.
+end
+;----------------------------------------------------------------------
 undef("sc_add_zhtw_ndc")
 procedure sc_add_zhtw_ndc(wks, plot, wchar, inx, iny, ftres)
-local wks, plot, wchar, sx, sy, dum, sizeDM, lenDM, id, offset, charArr, ArrLen,\
-      tx_en, isen, pJust, oJust
+local wks, plot, wchar, sx, sy, dum, sizeDM, id, offset, charArr, ArrLen,\
+      tx_en, isen, pJust, oJust, en_pJust, en_oJust
 begin
     res                   = True
     res@fontXoffsetF      = 0.
@@ -147,29 +171,38 @@ begin
     fontZHTWzh = (/"思源黑體","思源宋體","新細明體","標楷體","微軟正黑體"/)
     fontZHTWid = ind(fontZHTWzh.eq.fontZHTW)
       if (ismissing(fontZHTWid))then
-      print("Warning : cannot found the font name.")
+      print("Warning : cannot found the font name, reset to default.")
       fontZHTWid = 0
       end if
       delete(res@FontZHTW)
     else
     fontZHTWid = 0
     end if
-    ZH_TW_WORD_DATA = addfile("$SC_ROOT/font/"+fontZHTWen(fontZHTWid)+"_zhtw.nc","r") 
-    ZH_TW_WORD_TABLE = ZH_TW_WORD_DATA->table
-    ZH_TW_WORD_MAP   = ZH_TW_WORD_DATA->bitmap
+    ZHTW_FILE = addfile("$SC_ROOT/font/"+fontZHTWen(fontZHTWid)+"_zhtw.nc","r") 
+    ;ZHTW_FILE = addfile("./font/"+fontZHTWen(fontZHTWid)+"_zhtw.nc","r") 
+    ZHTW_UNI  = ZHTW_FILE->Unicodes
+    ZHTW_LSE  = ZHTW_FILE->LineSE
+    ZHTW_PSE  = ZHTW_FILE->PointSE
 ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    sizeDM = 64
+    sizeDM = 256
     plres = True                                   
-    plres@gsMarkerColor      = res@txFontColor        
-    plres@gsMarkerIndex      = 1 
-    plres@gsMarkerSizeF      = res@txFontHeightF/20.
-    plres@gsMarkerThicknessF = res@txFontHeightF*030.
-    fontW  = res@txFontHeightF*1.15
+    ;plres@gsMarkerColor      = res@txFontColor        
+    ;plres@gsMarkerIndex      = 1 
+    ;plres@gsMarkerSizeF      = res@txFontHeightF/10.
+    ;plres@gsMarkerThicknessF = res@txFontHeightF*1.
+    plres@gsFillColor        = res@txFontColor
+    plres@gsLineColor        = res@txFontColor
+    if (isatt(res,"gsLineThicknessF"))then
+      plres@gsLineThicknessF   = res@gsLineThicknessF 
+    else
+      plres@gsLineThicknessF   = 1 
+    end if
+    fontW  = res@txFontHeightF*1.20
 ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    DotDir = "./"
-    dimDM = (/sizeDM, sizeDM/)
-    lenDM = sizeDM/8*sizeDM
-    charLen = 3
+    resize = fontW/sizeDM
+    ;dimDM = (/sizeDM, sizeDM/)
+    ;lenDM = sizeDM/8*sizeDM
+    ;charLen = 3
     intChar = toint(tochar(wchar))
 ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     txres = True                      
@@ -202,51 +235,50 @@ begin
     sy = iny+res@fontYoffsetF + rotateY(pJust(iJust),-fontW,angle)
     delete([/pJust/])
 
-   ;pJust always=0.
-    oJust = (/    -fontW,   -fontW/2.,       0.,\  ; fontHeight
-                  -fontW,   -fontW/2.,       0.,\
-                  -fontW,   -fontW/2.,       0./)
-    pdots =           onedtond(fspan(0.   ,fontW,sizeDM),dimDM)  ; pararell
-    odots = transpose(onedtond(fspan(fontW,   0.,sizeDM),dimDM)) ; orthogonal
-    xdots = rotateX(pdots,odots,angle) + rotateX(0.,oJust(iJust),angle)
-    ydots = rotateY(pdots,odots,angle) + rotateY(0.,oJust(iJust),angle)
-    delete([/oJust/])
-    delete([/pdots,odots/])
-
+   ;pJust always=fontW/2.
+    pJust = onedtond(fontW/2.,9)
+    oJust = (/    -fontW/2.,       0.,   fontW/2.,\  ; fontHeight
+                  -fontW/2.,       0.,   fontW/2.,\
+                  -fontW/2.,       0.,   fontW/2./)
+    oJust = oJust+0.08*fontW 
 ;   ;-------------------------------------------------------------------
     fspace   = 0.0   ; count space for WCHAR
     tx_en    = ""
     isen     = False
     do i = 0,ArrLen-1
     if(intChar(i).ge.128)then
-        if (isen)then
-          pJust = fontLenth(toint(tochar(tx_en)),fontW)
+        if (isen)then ; En before zhtw
+          en_pJust = fontLenth(toint(tochar(tx_en)),fontW)
+          en_oJust = enSingleJustOrth(tx_en,fontW)
           if     (iJust/3.eq.0)then
-            pJO = 0.0
+            pJO = 0.10
           elseif (iJust/3.eq.1)then
             pJO = 0.5
           else
-            pJO = 1.0
+            pJO = 1.00
           end if
-          tx = sx + rotateX(fspace+pJO*pJust,fontW,angle)
-          ty = sy + rotateY(fspace+pJO*pJust,fontW,angle)
+          tx = sx + rotateX(fspace+pJO*en_pJust,fontW+en_oJust,angle)
+          ty = sy + rotateY(fspace+pJO*en_pJust,fontW+en_oJust,angle)
           gsn_text_ndc(wks,tx_en,tx,ty,txres)
-          fspace = fspace + pJust 
+          delete([/tx,ty/])
+          fspace = fspace + en_pJust 
           tx_en  = ""
           isen   = False
         end if
 
         uni   = toint(utf82uni(intChar(i:i+2)))
-        IND   = ind(uni.eq.ZH_TW_WORD_TABLE)
+        IND   = ind(uni.eq.ZHTW_UNI)
         if (ismissing(IND))then
           print("  ZHTW : not found '"+tochar(intChar(i:i+2))+"' (unicode="+uni+"), Skipped.")
         else
-          tx = sx + rotateX(fspace,fontW,angle)
-          ty = sy + rotateY(fspace,fontW,angle)
-          fdot  = reshape(getbitsone(ZH_TW_WORD_MAP(IND,:)), dimDM)
-          maskXDM = mask(xdots, fdot, 1)
-          maskYDM = mask(ydots, fdot, 1)
-          gsn_polymarker_ndc(wks,tx+maskXDM,ty+maskYDM, plres)  ;;heyl
+          do il=ZHTW_LSE(IND,0),ZHTW_LSE(IND,1)
+            xy = tofloat(ZHTW_FILE->xy(ZHTW_PSE(il,0):ZHTW_PSE(il,1),:))*resize
+            tx = sx + rotateX(fspace+pJust(iJust)+xy(:,0),fontW+oJust(iJust)+xy(:,1),angle)
+            ty = sy + rotateY(fspace+pJust(iJust)+xy(:,0),fontW+oJust(iJust)+xy(:,1),angle)
+            gsn_polygon_ndc (wks,tx,ty, plres)  
+            gsn_polyline_ndc(wks,tx,ty, plres)  
+            delete([/xy,tx,ty/])
+          end do 
         end if
         fspace = fspace+fontW
         i = i+2 
@@ -257,18 +289,20 @@ begin
     end do
 
     if (isen)then
-          pJust = fontLenth(toint(tochar(tx_en)),fontW)
+          en_pJust = fontLenth(toint(tochar(tx_en)),fontW)
+          en_oJust = enSingleJustOrth(tx_en,fontW)
           if     (iJust/3.eq.0)then
-            pJO = 0.0
+            pJO = 0.10
           elseif (iJust/3.eq.1)then
             pJO = 0.5
           else
-            pJO = 1.0
+            pJO = 1.00
           end if
-          tx = sx + rotateX(fspace+pJO*pJust,fontW,angle)
-          ty = sy + rotateY(fspace+pJO*pJust,fontW,angle)
+          tx = sx + rotateX(fspace+pJO*en_pJust,fontW+en_oJust,angle)
+          ty = sy + rotateY(fspace+pJO*en_pJust,fontW+en_oJust,angle)
           gsn_text_ndc(wks,tx_en,tx,ty,txres)
-          fspace = fspace + pJust 
+          delete([/tx,ty/])
+          fspace = fspace + en_pJust 
           tx_en  = ""
           isen   = False
     end if
@@ -300,7 +334,7 @@ end
 ; tiYAxisString and check if it includes chinese font, then attach it to plot
 undef("fontTitle")
 procedure fontTitle(wks, plot, res)
-local Just
+local Just,opt
 begin
 hasMainString   = isatt(res,"tiMainString")   .and.fontCheck(res@tiMainString)
 hasLeftString   = isatt(res,"gsnLeftString")  .and.fontCheck(res@gsnLeftString)
@@ -310,6 +344,10 @@ hasXAxisString  = isatt(res,"tiXAxisString")  .and.fontCheck(res@tiXAxisString)
 hasYAxisString  = isatt(res,"tiYAxisString")  .and.fontCheck(res@tiYAxisString)
 hasXBLabels     = isatt(res,"tmXBLabels")     .and.fontCheck(res@tmXBLabels)
 hasYLLabels     = isatt(res,"tmYLLabels")     .and.fontCheck(res@tmYLLabels)
+opt             = True
+if (isatt(res,"FontZHTW") )then
+  opt@FontZHTW = res@FontZHTW
+end if
 ;;--
     getvalues plot
         "vpXF"          : vpx
@@ -325,7 +363,7 @@ hasYLLabels     = isatt(res,"tmYLLabels")     .and.fontCheck(res@tmYLLabels)
 ;~~~~~~~~~~~~~~~~~~~~Title~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if(hasMainString)then
 ;        ftres@fontJust = "BottomCenter"
-        ftres        := True
+        ftres        := opt
         getvalues plot
           "tiMainString"           : str 
           "tiMainAngleF"           : ftres@txAngleF
@@ -349,26 +387,26 @@ hasYLLabels     = isatt(res,"tmYLLabels")     .and.fontCheck(res@tmYLLabels)
         print("Warning : Resource 'amOn' should set to False when subtitle include chinese character.")
     end if
     if(hasLeftString)then
-        ftres              := True
+        ftres              := opt
         ftres@txFontHeightF = 0.020
         ftres@txJust        = "BottomLeft"
         sc_add_zhtw_ndc(wks, plot,res@gsnLeftString, vpx, vpy+tXTMOL, ftres)
     end if
     if(hasCenterString)then
-        ftres              := True
+        ftres              := opt
         ftres@txFontHeightF = 0.020
         ftres@txJust        = "BottomCenter"
         sc_add_zhtw_ndc(wks, plot,res@gsnCenterString, vpx+vpw/2., vpy+tXTMOL, ftres)
     end if
     if(hasRightString)then
-        ftres              := True
+        ftres              := opt
         ftres@txFontHeightF = 0.020
         ftres@txJust        = "BottomRight"
         sc_add_zhtw_ndc(wks, plot,res@gsnRightString, vpx+vpw, vpy+tXTMOL, ftres)
     end if
 ;~~~~~~~~~~~~~~~X Axis String and Labels~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if(hasXAxisString)then
-        ftres        := True
+        ftres        := opt
         getvalues plot
           "tiXAxisString"           : str 
           "tiXAxisAngleF"           : ftres@txAngleF
@@ -399,7 +437,7 @@ hasYLLabels     = isatt(res,"tmYLLabels")     .and.fontCheck(res@tmYLLabels)
     end if 
     if(hasXBLabels)then
 ;        ftres@fontJust = "TopCenter"
-        ftres        := True
+        ftres        := opt
         getvalues plot
           "tmXBLabels"                : str
           "tmXBLabelAngleF"           : ftres@txAngleF
@@ -424,7 +462,7 @@ hasYLLabels     = isatt(res,"tmYLLabels")     .and.fontCheck(res@tmYLLabels)
     end if
 ;~~~~~~~~~~~~~~~Y Axis String and Labels~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if(hasYAxisString)then
-        ftres        := True
+        ftres        := opt
 ;        ftres@fontJust = "CenterRight"
         getvalues plot
           "tiYAxisString"           : str 
@@ -456,7 +494,7 @@ hasYLLabels     = isatt(res,"tmYLLabels")     .and.fontCheck(res@tmYLLabels)
     end if
     if(hasYLLabels)then
 ;        ftres@fontJust = "CenterRight"
-        ftres        := True
+        ftres        := opt
         getvalues plot
           "tmYLLabels"                : str
           "tmYLLabelAngleF"           : ftres@txAngleF
