@@ -1,4 +1,4 @@
-Writing tradictional Chinese word with dots.
+Writing tradictional Chinese words.
 export SC_ROOT include:
   $SC_ROOT/lib/ZHWD.ncl
   $SC_ROOT/font
